@@ -512,6 +512,9 @@ export default function ConferenceRoomSim() {
         const { lx: camLx, ly: camLy } = toLatF(displayCam.y, camHeight);
         const { lx: ceLx,  ly: ceLy  } = toLatF(centerEnd.ry, centerEnd.h);
 
+        // Posiciones Y únicas de todas las sillas
+        const seatYPositions = [...new Set(SEATS.map(s => Math.round(s.y * 100) / 100))].sort((a, b) => a - b);
+
         return (
           <div style={{ marginTop: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
 
@@ -575,6 +578,27 @@ export default function ConferenceRoomSim() {
                     stroke="#1e2530" strokeWidth={0.8} strokeDasharray="3 4" />;
                 })}
 
+                {/* ── Mesa en corte lateral ── */}
+                {(() => {
+                  const x1 = toLatF(TY,      0).lx;
+                  const x2 = toLatF(TY + TL, 0).lx;
+                  const tableTopY = LPAD + (ROOM_H - 0.75) * LSY;
+                  return <rect x={Math.min(x1, x2)} y={tableTopY} width={Math.abs(x2 - x1)} height={0.07 * LSY}
+                    fill="#221508" stroke="#7d5a2f" strokeWidth={1.5} rx={2} />;
+                })()}
+
+                {/* ── Línea referencia cabeza sentada (1.2 m) ── */}
+                {(() => {
+                  const refY = LPAD + (ROOM_H - 1.2) * LSY;
+                  return (
+                    <g>
+                      <line x1={LPAD} y1={refY} x2={LPAD + ROOM_D * LSX} y2={refY}
+                        stroke="#ffc800" strokeWidth={1} strokeDasharray="4 5" opacity={0.45} />
+                      <text x={LPAD + ROOM_D * LSX + 6} y={refY + 4} fill="#ffc800" fontSize={9} opacity={0.75}>1.2m</text>
+                    </g>
+                  );
+                })()}
+
                 {/* ── Cono FOV vertical ── */}
                 {!isPerpendicular && (
                   <polygon points={conePoints}
@@ -593,6 +617,25 @@ export default function ConferenceRoomSim() {
                     ⚠ Cámara apunta Este/Oeste
                   </text>
                 )}
+
+                {/* ── Siluetas de personas sentadas ── */}
+                {seatYPositions.map(ry => {
+                  const { lx: px } = toLatF(ry, 0);
+                  const bodyW  = 0.36 * LSX;
+                  const bodyY  = LPAD + (ROOM_H - 1.0) * LSY;
+                  const bodyH  = 1.0  * LSY;
+                  const headCY = LPAD + (ROOM_H - 1.2) * LSY;
+                  return (
+                    <g key={ry} opacity={0.8}>
+                      {/* Cuerpo */}
+                      <rect x={px - bodyW / 2} y={bodyY} width={bodyW} height={bodyH}
+                        fill="#1e2d42" stroke="#3a5275" strokeWidth={1} rx={3} />
+                      {/* Cabeza */}
+                      <ellipse cx={px} cy={headCY} rx={0.13 * LSX} ry={0.12 * LSY}
+                        fill="#1e2d42" stroke="#3a5275" strokeWidth={1.5} />
+                    </g>
+                  );
+                })}
 
                 {/* ── Ícono cámara ── */}
                 <rect x={camLx - 10} y={camLy - 7} width={20} height={14} fill={cc} stroke="white" strokeWidth={1.5} rx={3} />
