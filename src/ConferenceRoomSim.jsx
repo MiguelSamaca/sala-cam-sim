@@ -479,38 +479,32 @@ export default function ConferenceRoomSim() {
         const heightMarks = [0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
         const depthMarks  = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 11.4];
 
-        // Cámara a mostrar: seleccionada o primera activa
-        const displayCamId = selectedCam && activeCams.includes(selectedCam) ? selectedCam : activeCams[0];
-        const displayCam   = cameras.find(c => c.id === displayCamId);
-        const cc           = displayCam?.color ?? "#3b76c4";
-
-        // Preset activo y FOV vertical
+        // Preset activo y FOV vertical (compartido por todas las cámaras)
         const activePreset = PRESETS.find(p => activePresets.includes(p.id)) || PRESETS[0];
         const vFovDeg      = toVFOV(activePreset.fov);
-
-        // Geometría del cono lateral
-        const tiltRad       = (tilt * Math.PI) / 180;
-        const depthDir      = Math.sin(displayCam.dir);       // +sur / -norte
-        const isPerpendicular = Math.abs(depthDir) < 0.15;
-        const lateralSign   = depthDir >= 0 ? 1 : -1;
-        const centerAngle   = Math.atan2(Math.sin(tiltRad), lateralSign * Math.cos(tiltRad));
-        const vHalf         = (vFovDeg * Math.PI) / 360;
+        const tiltRad      = (tilt * Math.PI) / 180;
+        const vHalf        = (vFovDeg * Math.PI) / 360;
         const N = 24;
-        const conePts = [{ ry: displayCam.y, h: camHeight }];
-        for (let i = 0; i <= N; i++) {
-          const a = (centerAngle - vHalf) + (2 * vHalf * i) / N;
-          conePts.push(rayToWallLat(displayCam.y, camHeight, a));
-        }
-        // Flip horizontal: si la cámara apunta Norte queda a la derecha → espejar para que siempre quede a la izquierda
-        const flip   = depthDir < 0 && !isPerpendicular;
-        const toLatF = (ry, h) => ({ lx: LPAD + (flip ? ROOM_D - ry : ry) * LSX, ly: LPAD + (ROOM_H - h) * LSY });
 
-        const conePoints = conePts.map(p => { const { lx, ly } = toLatF(p.ry, p.h); return `${lx},${ly}`; }).join(" ");
-
-        // Rayo central
-        const centerEnd              = rayToWallLat(displayCam.y, camHeight, centerAngle);
-        const { lx: camLx, ly: camLy } = toLatF(displayCam.y, camHeight);
-        const { lx: ceLx,  ly: ceLy  } = toLatF(centerEnd.ry, centerEnd.h);
+        // Cono por cada cámara activa — layout real Norte=izq, Sur=der
+        const allCamData = cameras.filter(c => activeCams.includes(c.id)).map(cam => {
+          const depthDir = Math.sin(cam.dir);
+          const isPerp   = Math.abs(depthDir) < 0.15;
+          const sign     = depthDir >= 0 ? 1 : -1;
+          const cAngle   = Math.atan2(Math.sin(tiltRad), sign * Math.cos(tiltRad));
+          const pts = [{ ry: cam.y, h: camHeight }];
+          if (!isPerp) {
+            for (let i = 0; i <= N; i++) {
+              const a = (cAngle - vHalf) + (2 * vHalf * i) / N;
+              pts.push(rayToWallLat(cam.y, camHeight, a));
+            }
+          }
+          const conePoints = pts.map(p => { const { lx, ly } = toLat(p.ry, p.h); return `${lx},${ly}`; }).join(" ");
+          const cEnd = isPerp ? null : rayToWallLat(cam.y, camHeight, cAngle);
+          const { lx: camLx, ly: camLy } = toLat(cam.y, camHeight);
+          const { lx: ceLx, ly: ceLy }   = cEnd ? toLat(cEnd.ry, cEnd.h) : { lx: camLx, ly: camLy };
+          return { cam, isPerp, conePoints, camLx, camLy, ceLx, ceLy };
+        });
 
         // Posiciones Y únicas de todas las sillas
         const seatYPositions = [...new Set(SEATS.map(s => Math.round(s.y * 100) / 100))].sort((a, b) => a - b);
@@ -524,7 +518,6 @@ export default function ConferenceRoomSim() {
                 <span style={{ color: "#c9d1d9", fontWeight: 700, fontSize: 15 }}>Vista Lateral — Corte Norte → Sur</span>
                 <span style={{ color: "#484f58", fontSize: 12, marginLeft: 10 }}>{ROOM_D} m × {ROOM_H} m</span>
               </div>
-              {/* Altura montaje */}
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ color: "#8b949e", fontSize: 12, fontWeight: 600 }}>Montaje:</span>
                 <input type="range" min="0.5" max={ROOM_H} step="0.05" value={camHeight}
@@ -535,22 +528,25 @@ export default function ConferenceRoomSim() {
                   {camHeight.toFixed(2)} m
                 </span>
               </div>
-              {/* Tilt */}
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ color: "#8b949e", fontSize: 12, fontWeight: 600 }}>Tilt:</span>
                 <input type="range" min="-45" max="15" step="1" value={tilt}
                   onChange={e => setTilt(parseFloat(e.target.value))}
-                  style={{ width: 100, accentColor: cc }} />
-                <span style={{ minWidth: 42, textAlign: "center", fontWeight: 700, fontSize: 13, color: cc,
-                  background: "#0d1117", border: `1px solid ${cc}55`, borderRadius: 5, padding: "2px 6px" }}>
+                  style={{ width: 100, accentColor: "#6e7681" }} />
+                <span style={{ minWidth: 42, textAlign: "center", fontWeight: 700, fontSize: 13, color: "#c9d1d9",
+                  background: "#0d1117", border: "1px solid #484f58", borderRadius: 5, padding: "2px 6px" }}>
                   {tilt > 0 ? `+${tilt}` : tilt}°
                 </span>
               </div>
-              {/* Cámara activa */}
-              <div style={{ display: "flex", alignItems: "center", gap: 6,
-                background: `${cc}18`, border: `1px solid ${cc}55`, borderRadius: 6, padding: "4px 10px" }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: cc }} />
-                <span style={{ color: cc, fontWeight: 700, fontSize: 12 }}>{displayCam.label}</span>
+              {/* Pills cámaras activas */}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                {allCamData.map(({ cam }) => (
+                  <div key={cam.id} style={{ display: "flex", alignItems: "center", gap: 4,
+                    background: `${cam.color}18`, border: `1px solid ${cam.color}55`, borderRadius: 6, padding: "3px 8px" }}>
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: cam.color }} />
+                    <span style={{ color: cam.color, fontWeight: 700, fontSize: 11 }}>{cam.label}</span>
+                  </div>
+                ))}
                 <span style={{ color: "#6e7681", fontSize: 11 }}>· {activePreset.label} · vFOV {vFovDeg.toFixed(1)}°</span>
               </div>
             </div>
@@ -560,34 +556,34 @@ export default function ConferenceRoomSim() {
               boxShadow: "0 8px 32px rgba(0,0,0,0.4)", overflowX: "auto" }}>
               <svg width={latW} height={latH}>
 
-                {/* Fondo sala */}
+                {/* Fondo */}
                 <rect x={LPAD} y={LPAD} width={ROOM_D * LSX} height={ROOM_H * LSY}
                   fill="#161d2b" stroke="#3b76c4" strokeWidth={2} />
 
-                {/* Grid horizontal (alturas) */}
+                {/* Grid horizontal */}
                 {heightMarks.filter(h => h > 0 && h < ROOM_H).map(h => {
                   const { ly } = toLat(0, h);
                   return <line key={h} x1={LPAD} y1={ly} x2={LPAD + ROOM_D * LSX} y2={ly}
                     stroke="#1e2530" strokeWidth={0.8} strokeDasharray="3 4" />;
                 })}
 
-                {/* Grid vertical (profundidad) */}
+                {/* Grid vertical */}
                 {depthMarks.filter(d => d > 0 && d < ROOM_D).map(d => {
-                  const { lx } = toLatF(d, 0);
+                  const { lx } = toLat(d, 0);
                   return <line key={d} x1={lx} y1={LPAD} x2={lx} y2={LPAD + ROOM_H * LSY}
                     stroke="#1e2530" strokeWidth={0.8} strokeDasharray="3 4" />;
                 })}
 
-                {/* ── Mesa en corte lateral ── */}
+                {/* Mesa */}
                 {(() => {
-                  const x1 = toLatF(TY,      0).lx;
-                  const x2 = toLatF(TY + TL, 0).lx;
+                  const x1 = toLat(TY, 0).lx;
+                  const x2 = toLat(TY + TL, 0).lx;
                   const tableTopY = LPAD + (ROOM_H - 0.75) * LSY;
-                  return <rect x={Math.min(x1, x2)} y={tableTopY} width={Math.abs(x2 - x1)} height={0.07 * LSY}
+                  return <rect x={x1} y={tableTopY} width={x2 - x1} height={0.07 * LSY}
                     fill="#221508" stroke="#7d5a2f" strokeWidth={1.5} rx={2} />;
                 })()}
 
-                {/* ── Línea referencia cabeza sentada (1.2 m) ── */}
+                {/* Línea referencia 1.2 m */}
                 {(() => {
                   const refY = LPAD + (ROOM_H - 1.2) * LSY;
                   return (
@@ -599,56 +595,54 @@ export default function ConferenceRoomSim() {
                   );
                 })()}
 
-                {/* ── Cono FOV vertical ── */}
-                {!isPerpendicular && (
-                  <polygon points={conePoints}
-                    fill={activePreset.fill} stroke={activePreset.stroke} strokeWidth={1.5} />
-                )}
+                {/* ── Conos todas las cámaras activas ── */}
+                {allCamData.map(({ cam, isPerp, conePoints }) => !isPerp && (
+                  <polygon key={`cone-${cam.id}`} points={conePoints}
+                    fill={activePreset.fill} stroke={cam.color} strokeWidth={1.5} opacity={0.8} />
+                ))}
 
-                {/* ── Rayo central ── */}
-                {!isPerpendicular && (
-                  <line x1={camLx} y1={camLy} x2={ceLx} y2={ceLy}
-                    stroke={cc} strokeWidth={1.5} strokeDasharray="5 3" opacity={0.85} />
-                )}
+                {/* ── Rayos centrales ── */}
+                {allCamData.map(({ cam, isPerp, camLx, camLy, ceLx, ceLy }) => !isPerp && (
+                  <line key={`ray-${cam.id}`} x1={camLx} y1={camLy} x2={ceLx} y2={ceLy}
+                    stroke={cam.color} strokeWidth={1.5} strokeDasharray="5 3" opacity={0.9} />
+                ))}
 
-                {/* ── Aviso si la cámara apunta Este/Oeste ── */}
-                {isPerpendicular && (
-                  <text x={camLx + 14} y={camLy - 8} fill="#ffc800" fontSize={10} fontWeight={700}>
-                    ⚠ Cámara apunta Este/Oeste
-                  </text>
-                )}
-
-                {/* ── Siluetas de personas sentadas ── */}
+                {/* ── Siluetas personas ── */}
                 {seatYPositions.map(ry => {
-                  const { lx: px } = toLatF(ry, 0);
+                  const { lx: px } = toLat(ry, 0);
                   const bodyW  = 0.36 * LSX;
                   const bodyY  = LPAD + (ROOM_H - 1.0) * LSY;
-                  const bodyH  = 1.0  * LSY;
                   const headCY = LPAD + (ROOM_H - 1.2) * LSY;
                   return (
                     <g key={ry} opacity={0.8}>
-                      {/* Cuerpo */}
-                      <rect x={px - bodyW / 2} y={bodyY} width={bodyW} height={bodyH}
+                      <rect x={px - bodyW / 2} y={bodyY} width={bodyW} height={1.0 * LSY}
                         fill="#1e2d42" stroke="#3a5275" strokeWidth={1} rx={3} />
-                      {/* Cabeza */}
                       <ellipse cx={px} cy={headCY} rx={0.13 * LSX} ry={0.12 * LSY}
                         fill="#1e2d42" stroke="#3a5275" strokeWidth={1.5} />
                     </g>
                   );
                 })}
 
-                {/* ── Ícono cámara ── */}
-                <rect x={camLx - 10} y={camLy - 7} width={20} height={14} fill={cc} stroke="white" strokeWidth={1.5} rx={3} />
-                <circle cx={camLx} cy={camLy} r={5} fill="white" />
-                <circle cx={camLx} cy={camLy} r={3} fill="#111" />
-                <circle cx={camLx - 1} cy={camLy - 1} r={1} fill="white" opacity={0.6} />
-                <text x={camLx} y={camLy - 12} textAnchor="middle" fill={cc} fontSize={9} fontWeight={700}>
-                  {displayCam.label}
-                </text>
+                {/* ── Íconos de cámara ── */}
+                {allCamData.map(({ cam, isPerp, camLx, camLy }) => (
+                  <g key={`icon-${cam.id}`}>
+                    <rect x={camLx - 10} y={camLy - 7} width={20} height={14}
+                      fill={cam.color} stroke="white" strokeWidth={1.5} rx={3} />
+                    <circle cx={camLx} cy={camLy} r={5} fill="white" />
+                    <circle cx={camLx} cy={camLy} r={3} fill="#111" />
+                    <circle cx={camLx - 1} cy={camLy - 1} r={1} fill="white" opacity={0.6} />
+                    <text x={camLx} y={camLy - 12} textAnchor="middle" fill={cam.color} fontSize={9} fontWeight={700}>
+                      {cam.label}
+                    </text>
+                    {isPerp && (
+                      <text x={camLx + 14} y={camLy - 8} fill="#ffc800" fontSize={9} fontWeight={700}>⚠E/O</text>
+                    )}
+                  </g>
+                ))}
 
-                {/* Línea de altura de montaje (referencia) */}
-                <line x1={LPAD} y1={camLy} x2={LPAD + ROOM_D * LSX} y2={camLy}
-                  stroke={cc} strokeWidth={1} strokeDasharray="4 6" opacity={0.3} />
+                {/* Línea de montaje */}
+                <line x1={LPAD} y1={toLat(0, camHeight).ly} x2={LPAD + ROOM_D * LSX} y2={toLat(0, camHeight).ly}
+                  stroke="#3b76c4" strokeWidth={1} strokeDasharray="4 6" opacity={0.25} />
 
                 {/* Eje Y: alturas */}
                 {heightMarks.map(h => {
@@ -665,7 +659,7 @@ export default function ConferenceRoomSim() {
 
                 {/* Eje X: profundidad */}
                 {depthMarks.map(d => {
-                  const { lx } = toLatF(d, 0);
+                  const { lx } = toLat(d, 0);
                   const floorY = LPAD + ROOM_H * LSY;
                   return (
                     <g key={d}>
@@ -683,12 +677,8 @@ export default function ConferenceRoomSim() {
                   textAnchor="middle" fill="#484f58" fontSize={10}
                   transform={`rotate(-90, ${LPAD - 38}, ${LPAD + ROOM_H * LSY / 2})`}>altura (m)</text>
 
-                <text x={LPAD + 4} y={LPAD - 6} fill="#2d4a7a" fontSize={9} fontWeight={700}>
-                  {flip ? `SUR (Y=${ROOM_D})` : "NORTE (Y=0)"}
-                </text>
-                <text x={LPAD + ROOM_D * LSX - 4} y={LPAD - 6} textAnchor="end" fill="#2d4a7a" fontSize={9} fontWeight={700}>
-                  {flip ? "NORTE (Y=0)" : `SUR (Y=${ROOM_D})`}
-                </text>
+                <text x={LPAD + 4} y={LPAD - 6} fill="#2d4a7a" fontSize={9} fontWeight={700}>NORTE (Y=0)</text>
+                <text x={LPAD + ROOM_D * LSX - 4} y={LPAD - 6} textAnchor="end" fill="#2d4a7a" fontSize={9} fontWeight={700}>SUR (Y={ROOM_D})</text>
                 <text x={LPAD + ROOM_D * LSX + 6} y={LPAD + 4} fill="#484f58" fontSize={9} fontWeight={600}>techo</text>
                 <text x={LPAD + ROOM_D * LSX + 6} y={LPAD + ROOM_H * LSY + 4} fill="#484f58" fontSize={9} fontWeight={600}>piso</text>
 
