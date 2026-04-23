@@ -35,10 +35,10 @@ const SEATS = makeSeats();
 
 // ─── Cámaras iniciales ────────────────────────────────────────────────────────
 const CAMERAS_INIT = [
-  { id: 1, x: 1.30, y: 11.25, dir: -Math.PI / 2, color: "#FF6B35", label: "CAM 1", desc: "Pared Sur — Oeste",   fixed: true  },
-  { id: 2, x: 5.55, y: 11.25, dir: -Math.PI / 2, color: "#4ECDC4", label: "CAM 2", desc: "Pared Sur — Este",    fixed: true  },
-  { id: 3, x: 1.30, y: 0.30,  dir:  Math.PI / 2, color: "#A855F7", label: "CAM 3", desc: "Posición configurable", fixed: false },
-  { id: 4, x: 5.55, y: 0.30,  dir:  Math.PI / 2, color: "#F59E0B", label: "CAM 4", desc: "Posición configurable", fixed: false },
+  { id: 1, x: 1.30, y: 11.25, dir: -Math.PI / 2, color: "#FF6B35", label: "CAM 1" },
+  { id: 2, x: 5.55, y: 11.25, dir: -Math.PI / 2, color: "#4ECDC4", label: "CAM 2" },
+  { id: 3, x: 1.30, y: 0.30,  dir:  Math.PI / 2, color: "#A855F7", label: "CAM 3" },
+  { id: 4, x: 5.55, y: 0.30,  dir:  Math.PI / 2, color: "#F59E0B", label: "CAM 4" },
 ];
 
 // ─── Presets de zoom ──────────────────────────────────────────────────────────
@@ -98,7 +98,12 @@ export default function ConferenceRoomSim() {
   const [cameras,       setCameras]       = useState(CAMERAS_INIT);
   const [selectedCam,   setSelectedCam]   = useState(null);
   // Inputs temporales para coordenadas (como strings para permitir escritura libre)
-  const [coordInputs,   setCoordInputs]   = useState({ 3: { x: "1.30", y: "0.30" }, 4: { x: "5.55", y: "0.30" } });
+  const [coordInputs,   setCoordInputs]   = useState({
+    1: { x: "1.30", y: "11.25" },
+    2: { x: "5.55", y: "11.25" },
+    3: { x: "1.30", y: "0.30"  },
+    4: { x: "5.55", y: "0.30"  },
+  });
 
   const toggleCam    = id => setActiveCams(p    => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
   const togglePreset = id => setActivePresets(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
@@ -254,10 +259,6 @@ export default function ConferenceRoomSim() {
                         from={`0 ${sx} ${sy}`} to={`360 ${sx} ${sy}`} dur="4s" repeatCount="indefinite" />
                     </circle>
                   )}
-                  {/* Indicador de posición configurable */}
-                  {!cam.fixed && (
-                    <circle cx={sx} cy={sy} r={14} fill="none" stroke={cam.color} strokeWidth={1} strokeDasharray="3 2" opacity={0.4} />
-                  )}
                   {/* Body cámara */}
                   <rect x={sx - 10} y={sy - 7} width={20} height={14} fill={cam.color} stroke="white" strokeWidth={1.5} rx={3} />
                   <circle cx={sx} cy={sy} r={5} fill="white" />
@@ -267,12 +268,10 @@ export default function ConferenceRoomSim() {
                   <line x1={sx} y1={sy}
                     x2={sx + Math.cos(cam.dir) * 18} y2={sy + Math.sin(cam.dir) * 18}
                     stroke={cam.color} strokeWidth={2.5} strokeDasharray="3 2" />
-                  {/* Coordenadas flotantes para cámaras configurables */}
-                  {!cam.fixed && (
-                    <text x={sx + 14} y={sy - 8} fill={cam.color} fontSize={8.5} fontWeight={700} opacity={0.9}>
-                      ({cam.x.toFixed(2)}, {cam.y.toFixed(2)})
-                    </text>
-                  )}
+                  {/* Coordenadas flotantes */}
+                  <text x={sx + 14} y={sy - 8} fill={cam.color} fontSize={8.5} fontWeight={700} opacity={0.9}>
+                    ({cam.x.toFixed(2)}, {cam.y.toFixed(2)})
+                  </text>
                   <text x={sx} y={sy + 24} textAnchor="middle" fill={cam.color} fontSize={10} fontWeight={700}>{cam.label}</text>
                 </g>
               );
@@ -304,32 +303,16 @@ export default function ConferenceRoomSim() {
         {/* ──── Panel de controles ─────────────────────────────────────── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 14, width: 262 }}>
 
-          {/* Cámaras fijas */}
-          <div style={{ background: "#161b22", border: "1px solid #30363d", borderRadius: 10, padding: 14 }}>
-            <div style={{ color: "#8b949e", fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>
-              CÁMARAS FIJAS
-            </div>
-            {cameras.filter(c => c.fixed).map(cam => (
-              <button key={cam.id} onClick={() => toggleCam(cam.id)} style={BtnStyle(activeCams.includes(cam.id), cam.color)}>
-                <span style={{ width: 10, height: 10, borderRadius: "50%", flexShrink: 0, background: activeCams.includes(cam.id) ? cam.color : "#30363d" }} />
-                <div>
-                  <div>{cam.label}</div>
-                  <div style={{ fontSize: 10, fontWeight: 400, color: "#6e7681" }}>{cam.desc}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {/* ── Cámaras configurables ── */}
-          <div style={{ background: "#161b22", border: `1.5px solid #30363d`, borderRadius: 10, padding: 14 }}>
+          {/* ── Todas las cámaras con posición configurable ── */}
+          <div style={{ background: "#161b22", border: "1.5px solid #30363d", borderRadius: 10, padding: 14 }}>
             <div style={{ color: "#8b949e", fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 4 }}>
-              CÁMARAS ADICIONALES — POSICIÓN LIBRE
+              POSICIÓN DE CÁMARAS
             </div>
             <div style={{ color: "#484f58", fontSize: 10, marginBottom: 12 }}>
               Origen (0,0) = esquina Noroeste · X → Este · Y → Sur
             </div>
 
-            {cameras.filter(c => !c.fixed).map(cam => {
+            {cameras.map(cam => {
               const inp = coordInputs[cam.id];
               const isActive = activeCams.includes(cam.id);
               return (
@@ -402,23 +385,32 @@ export default function ConferenceRoomSim() {
                     })}
                   </div>
 
-                  {/* Pan fino */}
+                  {/* Pan */}
                   <div style={{ marginTop: 8 }}>
-                    <div style={{ color: "#6e7681", fontSize: 10, marginBottom: 5, fontWeight: 600 }}>PAN FINO</div>
-                    <div style={{ display: "flex", gap: 4 }}>
-                      {[[-30,"◀◀"], [-10,"◀"], [10,"▶"], [30,"▶▶"]].map(([d, lbl]) => (
+                    <div style={{ color: "#6e7681", fontSize: 10, marginBottom: 4, fontWeight: 600 }}>PAN FINO</div>
+                    <div style={{ display: "flex", gap: 3, marginBottom: 3 }}>
+                      {[[-5,"◀5°"], [-1,"◀1°"], [1,"1°▶"], [5,"5°▶"]].map(([d, lbl]) => (
                         <button key={lbl} onClick={() => panCamera(cam.id, d)} style={{
                           flex: 1, padding: "4px 0", borderRadius: 5, cursor: "pointer",
-                          background: "#21262d", border: `1px solid ${cam.color}44`,
-                          color: cam.color, fontSize: 12, fontWeight: 700,
+                          background: "#21262d", border: `1px solid ${cam.color}66`,
+                          color: cam.color, fontSize: 11, fontWeight: 700,
                         }}>{lbl}</button>
                       ))}
-                      <button onClick={() => setDirection(cam.id, cam.dir)} style={{
-                        padding: "4px 6px", borderRadius: 5, cursor: "pointer",
-                        background: "#21262d", border: "1px solid #30363d",
-                        color: "#6e7681", fontSize: 10,
-                      }}>⟳</button>
                     </div>
+                    <div style={{ display: "flex", gap: 3 }}>
+                      {[[-30,"◀30°"], [-10,"◀10°"], [10,"10°▶"], [30,"30°▶"]].map(([d, lbl]) => (
+                        <button key={lbl} onClick={() => panCamera(cam.id, d)} style={{
+                          flex: 1, padding: "4px 0", borderRadius: 5, cursor: "pointer",
+                          background: "#21262d", border: `1px solid ${cam.color}33`,
+                          color: cam.color + "bb", fontSize: 11, fontWeight: 700,
+                        }}>{lbl}</button>
+                      ))}
+                    </div>
+                    <button onClick={() => setDirection(cam.id, CAMERAS_INIT.find(c => c.id === cam.id).dir)} style={{
+                      width: "100%", marginTop: 3, padding: "3px 0", borderRadius: 5, cursor: "pointer",
+                      background: "#21262d", border: "1px solid #30363d",
+                      color: "#6e7681", fontSize: 10, fontWeight: 600,
+                    }}>⟳ Reset dirección</button>
                   </div>
                 </div>
               );
@@ -439,35 +431,6 @@ export default function ConferenceRoomSim() {
             ))}
           </div>
 
-          {/* Pan cámaras fijas */}
-          <div style={{ background: "#161b22", border: "1px solid #30363d", borderRadius: 10, padding: 14 }}>
-            <div style={{ color: "#8b949e", fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>PAN — CÁMARAS FIJAS</div>
-            {cameras.filter(c => c.fixed && activeCams.includes(c.id)).map(cam => {
-              const panDeg = Math.round(((cam.dir + Math.PI / 2) * 180) / Math.PI);
-              return (
-                <div key={cam.id} style={{ marginBottom: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                    <span style={{ color: cam.color, fontWeight: 700, fontSize: 12 }}>{cam.label}</span>
-                    <span style={{ color: "#6e7681", fontSize: 11 }}>Pan: {panDeg > 0 ? "+" : ""}{panDeg}°</span>
-                  </div>
-                  <div style={{ display: "flex", gap: 5 }}>
-                    {[[-30,"◀◀"],[-10,"◀"],[10,"▶"],[30,"▶▶"]].map(([d, lbl]) => (
-                      <button key={lbl} onClick={() => panCamera(cam.id, d)} style={{
-                        flex: 1, padding: "5px 0", borderRadius: 5, cursor: "pointer",
-                        background: "#21262d", border: `1px solid ${cam.color}44`,
-                        color: cam.color, fontSize: 12, fontWeight: 700,
-                      }}>{lbl}</button>
-                    ))}
-                    <button onClick={() => setCameras(prev => prev.map(c => c.id === cam.id ? { ...c, dir: -Math.PI / 2 } : c))} style={{
-                      flex: 1, padding: "5px 0", borderRadius: 5, cursor: "pointer",
-                      background: "#21262d", border: "1px solid #30363d", color: "#6e7681", fontSize: 10,
-                    }}>⟳</button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
           {/* Specs */}
           <div style={{ background: "#161b22", border: "1px solid #30363d", borderRadius: 10, padding: 14, fontSize: 12 }}>
             <div style={{ color: "#8b949e", fontSize: 11, fontWeight: 700, letterSpacing: 1, marginBottom: 10 }}>Q-SYS NC-20×60</div>
@@ -483,7 +446,7 @@ export default function ConferenceRoomSim() {
       </div>
 
       <p style={{ textAlign: "center", color: "#484f58", fontSize: 11, marginTop: 16 }}>
-        CAM 3 y CAM 4: ingresa X e Y y presiona ↵ o Tab · Botones cardinales para orientar la cámara · ◀▶ para ajuste fino de pan
+        Ingresa X e Y en cualquier cámara y presiona ↵ o Tab · Cardinales para orientar · ◀▶ para ajuste fino de pan
       </p>
     </div>
   );
