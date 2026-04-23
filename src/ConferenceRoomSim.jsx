@@ -501,12 +501,16 @@ export default function ConferenceRoomSim() {
           const a = (centerAngle - vHalf) + (2 * vHalf * i) / N;
           conePts.push(rayToWallLat(displayCam.y, camHeight, a));
         }
-        const conePoints = conePts.map(p => { const { lx, ly } = toLat(p.ry, p.h); return `${lx},${ly}`; }).join(" ");
+        // Flip horizontal: si la cámara apunta Norte queda a la derecha → espejar para que siempre quede a la izquierda
+        const flip   = depthDir < 0 && !isPerpendicular;
+        const toLatF = (ry, h) => ({ lx: LPAD + (flip ? ROOM_D - ry : ry) * LSX, ly: LPAD + (ROOM_H - h) * LSY });
+
+        const conePoints = conePts.map(p => { const { lx, ly } = toLatF(p.ry, p.h); return `${lx},${ly}`; }).join(" ");
 
         // Rayo central
         const centerEnd              = rayToWallLat(displayCam.y, camHeight, centerAngle);
-        const { lx: camLx, ly: camLy } = toLat(displayCam.y, camHeight);
-        const { lx: ceLx,  ly: ceLy  } = toLat(centerEnd.ry, centerEnd.h);
+        const { lx: camLx, ly: camLy } = toLatF(displayCam.y, camHeight);
+        const { lx: ceLx,  ly: ceLy  } = toLatF(centerEnd.ry, centerEnd.h);
 
         return (
           <div style={{ marginTop: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
@@ -566,7 +570,7 @@ export default function ConferenceRoomSim() {
 
                 {/* Grid vertical (profundidad) */}
                 {depthMarks.filter(d => d > 0 && d < ROOM_D).map(d => {
-                  const { lx } = toLat(d, 0);
+                  const { lx } = toLatF(d, 0);
                   return <line key={d} x1={lx} y1={LPAD} x2={lx} y2={LPAD + ROOM_H * LSY}
                     stroke="#1e2530" strokeWidth={0.8} strokeDasharray="3 4" />;
                 })}
@@ -618,7 +622,7 @@ export default function ConferenceRoomSim() {
 
                 {/* Eje X: profundidad */}
                 {depthMarks.map(d => {
-                  const { lx } = toLat(d, 0);
+                  const { lx } = toLatF(d, 0);
                   const floorY = LPAD + ROOM_H * LSY;
                   return (
                     <g key={d}>
@@ -636,8 +640,12 @@ export default function ConferenceRoomSim() {
                   textAnchor="middle" fill="#484f58" fontSize={10}
                   transform={`rotate(-90, ${LPAD - 38}, ${LPAD + ROOM_H * LSY / 2})`}>altura (m)</text>
 
-                <text x={LPAD + 4} y={LPAD - 6} fill="#2d4a7a" fontSize={9} fontWeight={700}>NORTE (Y=0)</text>
-                <text x={LPAD + ROOM_D * LSX - 4} y={LPAD - 6} textAnchor="end" fill="#2d4a7a" fontSize={9} fontWeight={700}>SUR (Y={ROOM_D})</text>
+                <text x={LPAD + 4} y={LPAD - 6} fill="#2d4a7a" fontSize={9} fontWeight={700}>
+                  {flip ? `SUR (Y=${ROOM_D})` : "NORTE (Y=0)"}
+                </text>
+                <text x={LPAD + ROOM_D * LSX - 4} y={LPAD - 6} textAnchor="end" fill="#2d4a7a" fontSize={9} fontWeight={700}>
+                  {flip ? "NORTE (Y=0)" : `SUR (Y=${ROOM_D})`}
+                </text>
                 <text x={LPAD + ROOM_D * LSX + 6} y={LPAD + 4} fill="#484f58" fontSize={9} fontWeight={600}>techo</text>
                 <text x={LPAD + ROOM_D * LSX + 6} y={LPAD + ROOM_H * LSY + 4} fill="#484f58" fontSize={9} fontWeight={600}>piso</text>
 
