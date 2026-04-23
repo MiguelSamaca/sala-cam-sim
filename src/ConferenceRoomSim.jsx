@@ -33,6 +33,14 @@ function makeSeats() {
 }
 const SEATS = makeSeats();
 
+// ─── Vista Lateral ────────────────────────────────────────────────────────────
+const ROOM_H = 3.0;   // altura sala (m)
+const LPAD   = 52;
+const LSX    = 57;    // escala horizontal px/m (igual al plano)
+const LSY    = 80;    // escala vertical px/m (exagerada para ver altura)
+// ry = posición en profundidad (0=Norte, ROOM_D=Sur), h = altura desde piso
+const toLat = (ry, h) => ({ lx: LPAD + ry * LSX, ly: LPAD + (ROOM_H - h) * LSY });
+
 // ─── Cámaras iniciales ────────────────────────────────────────────────────────
 const CAMERAS_INIT = [
   { id: 1, x: 1.30, y: 11.25, dir: -Math.PI / 2, color: "#FF6B35", label: "CAM 1" },
@@ -104,6 +112,7 @@ export default function ConferenceRoomSim() {
     3: { x: "1.30", y: "0.30"  },
     4: { x: "5.55", y: "0.30"  },
   });
+  const [camHeight, setCamHeight] = useState(2.4); // altura montaje cámara (m)
 
   const toggleCam    = id => setActiveCams(p    => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
   const togglePreset = id => setActivePresets(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
@@ -444,6 +453,124 @@ export default function ConferenceRoomSim() {
 
         </div>
       </div>
+
+      {/* ──── Vista Lateral ──────────────────────────────────────────────── */}
+      {(() => {
+        const latW = LPAD * 2 + ROOM_D * LSX;
+        const latH = LPAD * 2 + ROOM_H * LSY;
+        const heightMarks = [0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
+        const depthMarks  = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 11.4];
+        const { ly: camLy } = toLat(0, camHeight);
+
+        return (
+          <div style={{ marginTop: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+
+            {/* Título + control altura */}
+            <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", justifyContent: "center" }}>
+              <div>
+                <span style={{ color: "#c9d1d9", fontWeight: 700, fontSize: 15 }}>Vista Lateral — Corte Norte → Sur</span>
+                <span style={{ color: "#484f58", fontSize: 12, marginLeft: 10 }}>{ROOM_D} m largo × {ROOM_H} m alto</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ color: "#8b949e", fontSize: 12, fontWeight: 600 }}>Altura montaje cámara:</span>
+                <input
+                  type="range" min="0.5" max={ROOM_H} step="0.05"
+                  value={camHeight}
+                  onChange={e => setCamHeight(parseFloat(e.target.value))}
+                  style={{ width: 120, accentColor: "#3b76c4" }}
+                />
+                <span style={{
+                  minWidth: 42, textAlign: "center", fontWeight: 700, fontSize: 13, color: "#79c0ff",
+                  background: "#0d1117", border: "1px solid #3b76c4", borderRadius: 5, padding: "2px 6px"
+                }}>{camHeight.toFixed(2)} m</span>
+              </div>
+            </div>
+
+            {/* SVG corte lateral */}
+            <div style={{ background: "#161b22", borderRadius: 14, padding: 10, border: "1px solid #30363d", boxShadow: "0 8px 32px rgba(0,0,0,0.4)", overflowX: "auto" }}>
+              <svg width={latW} height={latH}>
+
+                {/* Fondo sala */}
+                <rect x={LPAD} y={LPAD} width={ROOM_D * LSX} height={ROOM_H * LSY}
+                  fill="#161d2b" stroke="#3b76c4" strokeWidth={2} />
+
+                {/* Grid horizontal (alturas) */}
+                {heightMarks.filter(h => h > 0 && h < ROOM_H).map(h => {
+                  const { ly } = toLat(0, h);
+                  return <line key={h} x1={LPAD} y1={ly} x2={LPAD + ROOM_D * LSX} y2={ly}
+                    stroke="#1e2530" strokeWidth={0.8} strokeDasharray="3 4" />;
+                })}
+
+                {/* Grid vertical (profundidad) */}
+                {depthMarks.filter(d => d > 0 && d < ROOM_D).map(d => {
+                  const { lx } = toLat(d, 0);
+                  return <line key={d} x1={lx} y1={LPAD} x2={lx} y2={LPAD + ROOM_H * LSY}
+                    stroke="#1e2530" strokeWidth={0.8} strokeDasharray="3 4" />;
+                })}
+
+                {/* ── Línea altura de montaje cámara ── */}
+                <line x1={LPAD} y1={camLy} x2={LPAD + ROOM_D * LSX} y2={camLy}
+                  stroke="#3b76c4" strokeWidth={1.5} strokeDasharray="6 4" opacity={0.8} />
+                <rect x={LPAD + 4} y={camLy - 10} width={88} height={13} fill="#0d1117" rx={3} opacity={0.85} />
+                <text x={LPAD + 8} y={camLy - 1} fill="#79c0ff" fontSize={10} fontWeight={700}>
+                  📷 montaje {camHeight.toFixed(2)} m
+                </text>
+
+                {/* ── Eje Y izquierdo: alturas ── */}
+                {heightMarks.map(h => {
+                  const { ly } = toLat(0, h);
+                  return (
+                    <g key={h}>
+                      <line x1={LPAD - 5} y1={ly} x2={LPAD} y2={ly} stroke="#484f58" strokeWidth={1} />
+                      <text x={LPAD - 8} y={ly + 4} textAnchor="end" fill="#6e7681" fontSize={10} fontWeight={600}>
+                        {h.toFixed(1)}m
+                      </text>
+                    </g>
+                  );
+                })}
+
+                {/* ── Eje X inferior: profundidad ── */}
+                {depthMarks.map(d => {
+                  const { lx } = toLat(d, 0);
+                  const floorY = LPAD + ROOM_H * LSY;
+                  return (
+                    <g key={d}>
+                      <line x1={lx} y1={floorY} x2={lx} y2={floorY + 5} stroke="#484f58" strokeWidth={1} />
+                      <text x={lx} y={floorY + 15} textAnchor="middle" fill="#6e7681" fontSize={d === 11.4 ? 9 : 10}>
+                        {d === 11.4 ? "11.4" : d}
+                      </text>
+                    </g>
+                  );
+                })}
+
+                {/* Etiqueta eje X */}
+                <text x={LPAD + ROOM_D * LSX / 2} y={LPAD + ROOM_H * LSY + 30}
+                  textAnchor="middle" fill="#484f58" fontSize={10}>profundidad (m)</text>
+
+                {/* Etiqueta eje Y */}
+                <text x={LPAD - 38} y={LPAD + ROOM_H * LSY / 2}
+                  textAnchor="middle" fill="#484f58" fontSize={10}
+                  transform={`rotate(-90, ${LPAD - 38}, ${LPAD + ROOM_H * LSY / 2})`}>altura (m)</text>
+
+                {/* Paredes Norte / Sur */}
+                <text x={LPAD + 4} y={LPAD - 6} fill="#2d4a7a" fontSize={9} fontWeight={700}>NORTE (Y=0)</text>
+                <text x={LPAD + ROOM_D * LSX - 4} y={LPAD - 6} textAnchor="end" fill="#2d4a7a" fontSize={9} fontWeight={700}>SUR (Y={ROOM_D})</text>
+
+                {/* Techo / Piso */}
+                <text x={LPAD + ROOM_D * LSX + 6} y={LPAD + 4} fill="#484f58" fontSize={9} fontWeight={600}>techo</text>
+                <text x={LPAD + ROOM_D * LSX + 6} y={LPAD + ROOM_H * LSY + 4} fill="#484f58" fontSize={9} fontWeight={600}>piso</text>
+
+                {/* Cotas dimensiones */}
+                <line x1={LPAD} y1={LPAD - 16} x2={LPAD + ROOM_D * LSX} y2={LPAD - 16} stroke="#484f58" strokeWidth={1} />
+                <line x1={LPAD} y1={LPAD - 20} x2={LPAD} y2={LPAD - 12} stroke="#484f58" strokeWidth={1} />
+                <line x1={LPAD + ROOM_D * LSX} y1={LPAD - 20} x2={LPAD + ROOM_D * LSX} y2={LPAD - 12} stroke="#484f58" strokeWidth={1} />
+                <text x={LPAD + ROOM_D * LSX / 2} y={LPAD - 20} textAnchor="middle" fill="#6e7681" fontSize={11}>{ROOM_D} m</text>
+
+              </svg>
+            </div>
+          </div>
+        );
+      })()}
 
       <p style={{ textAlign: "center", color: "#484f58", fontSize: 11, marginTop: 16 }}>
         Ingresa X e Y en cualquier cámara y presiona ↵ o Tab · Cardinales para orientar · ◀▶ para ajuste fino de pan
