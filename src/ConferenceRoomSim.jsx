@@ -129,8 +129,9 @@ export default function ConferenceRoomSim() {
     3: { x: "1.30", y: "0.30"  },
     4: { x: "5.55", y: "0.30"  },
   });
-  const [camHeight, setCamHeight] = useState(2.4); // altura montaje cámara (m)
-  const [tilt,      setTilt]      = useState(-12);  // inclinación vertical cámara (grados)
+  const [camHeight,    setCamHeight]    = useState(2.4);
+  const [tilt,         setTilt]         = useState(-12);
+  const [selectedSeat, setSelectedSeat] = useState(null); // índice de silla seleccionada
 
   const toggleCam    = id => setActiveCams(p    => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
   const togglePreset = id => setActivePresets(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]);
@@ -251,10 +252,24 @@ export default function ConferenceRoomSim() {
             {/* Sillas */}
             {SEATS.map((s, i) => {
               const { sx, sy } = toSvg(s.x, s.y);
+              const isSel = selectedSeat === i;
               return (
-                <g key={i}>
-                  <rect x={sx - 7} y={sy - 7} width={14} height={14} fill="#1c3554" stroke="#3d7abf" strokeWidth={1.5} rx={3} />
-                  <rect x={sx - 4} y={sy - 4} width={8} height={8} fill="#234873" rx={2} />
+                <g key={i} onClick={() => setSelectedSeat(isSel ? null : i)} style={{ cursor: "pointer" }}>
+                  {isSel && (
+                    <rect x={sx - 10} y={sy - 10} width={20} height={20}
+                      fill="none" stroke="#ffc800" strokeWidth={2} rx={4} opacity={0.9} />
+                  )}
+                  <rect x={sx - 7} y={sy - 7} width={14} height={14}
+                    fill={isSel ? "#3a2e00" : "#1c3554"}
+                    stroke={isSel ? "#ffc800" : "#3d7abf"}
+                    strokeWidth={isSel ? 2 : 1.5} rx={3} />
+                  <rect x={sx - 4} y={sy - 4} width={8} height={8}
+                    fill={isSel ? "#7a6200" : "#234873"} rx={2} />
+                  {isSel && (
+                    <text x={sx} y={sy - 14} textAnchor="middle" fill="#ffc800" fontSize={8} fontWeight={700}>
+                      #{i + 1}
+                    </text>
+                  )}
                 </g>
               );
             })}
