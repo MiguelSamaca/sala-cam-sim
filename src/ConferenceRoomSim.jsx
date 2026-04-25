@@ -331,6 +331,49 @@ export default function ConferenceRoomSim() {
               transform={`rotate(-90, ${PAD - 28}, ${PAD + ROOM_D * SCALE / 2})`}>11.40 m</text>
             <text x={PAD + ROOM_W * SCALE - 4} y={PAD + 16} textAnchor="end" fill="#e3b341" fontSize={13} fontWeight={800}>N ▲</text>
 
+            {/* ── Info toma: silla seleccionada ── */}
+            {selectedSeat !== null && (() => {
+              const seat       = SEATS[selectedSeat];
+              const { sx, sy } = toSvg(seat.x, seat.y);
+              const firstCam   = cameras.find(c => activeCams.includes(c.id));
+              if (!firstCam) return null;
+
+              const dist         = Math.sqrt((firstCam.x - seat.x) ** 2 + (firstCam.y - seat.y) ** 2);
+              const activePreset = PRESETS.find(p => activePresets.includes(p.id)) || PRESETS[0];
+              const shotW        = (2 * dist * Math.tan((activePreset.fov * Math.PI) / 360)).toFixed(2);
+              const shotH        = (2 * dist * Math.tan((toVFOV(activePreset.fov) * Math.PI) / 360)).toFixed(2);
+
+              const bW = 122, bH = 78;
+              const bX = Math.min(sx + 14, svgW - bW - 6);
+              const bY = Math.max(6, Math.min(sy - 44, svgH - bH - 6));
+
+              return (
+                <g>
+                  <line x1={sx} y1={sy} x2={bX} y2={bY + bH / 2}
+                    stroke="#ffc800" strokeWidth={1} strokeDasharray="3 2" opacity={0.5} />
+                  <rect x={bX} y={bY} width={bW} height={bH}
+                    fill="#0d1117" stroke="#ffc800" strokeWidth={1.5} rx={5} opacity={0.96} />
+                  <text x={bX + 8} y={bY + 14} fill="#ffc800" fontSize={10} fontWeight={800}>
+                    Silla #{selectedSeat + 1} · {firstCam.label}
+                  </text>
+                  <line x1={bX + 6} y1={bY + 18} x2={bX + bW - 6} y2={bY + 18}
+                    stroke="#ffc800" strokeWidth={0.5} opacity={0.4} />
+                  <text x={bX + 8} y={bY + 32} fill="#8b949e" fontSize={9}>Distancia</text>
+                  <text x={bX + bW - 8} y={bY + 32} textAnchor="end" fill="#c9d1d9" fontSize={10} fontWeight={700}>
+                    {dist.toFixed(2)} m
+                  </text>
+                  <text x={bX + 8} y={bY + 48} fill="#8b949e" fontSize={9}>Ancho toma</text>
+                  <text x={bX + bW - 8} y={bY + 48} textAnchor="end" fill={activePreset.dot} fontSize={10} fontWeight={700}>
+                    {shotW} m
+                  </text>
+                  <text x={bX + 8} y={bY + 64} fill="#8b949e" fontSize={9}>Alto toma</text>
+                  <text x={bX + bW - 8} y={bY + 64} textAnchor="end" fill={activePreset.dot} fontSize={10} fontWeight={700}>
+                    {shotH} m
+                  </text>
+                </g>
+              );
+            })()}
+
             {/* Escala gráfica */}
             <g transform={`translate(${PAD + 4}, ${PAD + ROOM_D * SCALE - 14})`}>
               <rect x={0} y={0} width={SCALE} height={5} fill="#3b76c4" opacity={0.7} rx={1} />
